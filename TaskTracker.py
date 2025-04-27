@@ -1,39 +1,49 @@
 import re
+import time
 
-taskList = [] #test, temporary
-
+taskList = [] #temporary, in place of json
 cmdList = "^add|^delete|^update|^mark|^list"
-
 class task:
-    def __init__(self, body, id, status, createdAt, updatedAt):
+    def __init__(self, body, status, createdAt, updatedAt):
         self.body = body
-        self.id = id
         self.status = status
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+taskTemp = task() #creates task object to be written to in current session
+
+def add():
+    taskList.append(taskTemp)
+    id = taskList.index(taskTemp)
+    print(f"task succesfully created! ID: {id}")
+    return id
+
+def delete():
+    taskList[id] = None
+    print(f"task ID: {id} succesfully deleted!")
 
 def inputMonitor():
-    x = re.search(cmdList, input())
-    if x == true:
-        match x:
-            case "add":
-                pass
-            case "delete":
-                pass
-            case "update":
-                pass
-            case "mark":
-                pass
-            case "list":
-                pass
-    else: 
-        y = input()
-        y = y.split(" ")
-        del y[1]
-        y = str(y)
-        y = y.strip("['']")
-        print(f"[ERROR]: command '{y}' not recognised")
-
+    userInput = input().split(" ").strip("['']")
+    match userInput[0]:
+        case "add":
+            taskTemp.body = userInput[1]
+            taskTemp.status = "todo"
+            taskTemp.createdAt = datetime.datetime("%x","%X")
+            add()
+        case "delete":
+            id = userInput[1]
+            delete()
+        case "update":
+            id = userInput[1]
+            taskList[id].body = userInput[2]
+            taskList[id].createdAt = datetime.datetime("%x","%X")
+        case "mark":
+            pass
+        case "list":
+            pass
+        case _:
+            print(f"[ERROR]: command '{userInput[0]}' not recognised")
+            inputMonitor()
+        
 
     
 
