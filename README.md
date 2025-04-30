@@ -1,4 +1,4 @@
-Non-functional, very much WIP. 
+Mostly functional, no JSON file handling
 
 Made for a project website
 
