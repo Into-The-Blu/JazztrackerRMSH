@@ -1,19 +1,14 @@
-#Jazztracker v0.9
+#Jazztracker v1.0
 #by Into-The-Blu (https://github.com/Into-The-Blu) for a roadmap.sh project
 #free use license but I doubt anyone will
 
 from datetime import datetime
 from dataclasses import dataclass
 import sys
+import os
+import jsonpickle
 
-# Todo:
-# - add json handling
-# - add more qol and error handling
-
-# test list:
-# - 
-
-taskList = [] # temporary, in place of json
+taskList = [] 
 @dataclass
 class Task:  # self explanatory
     taskId_objAttr: int
@@ -23,6 +18,30 @@ class Task:  # self explanatory
     
 def help():  # self explanatory
     print("\nCommands:\n============================================================================\nadd <task>...................adds a task with the default status \"todo\"\ndelete <taskid>..............deletes the task associated with the given id\nupdate <taskid> <task>.......overwrites the task associated with the given id\nmark-in-progress <taskid>....marks the task at a given id as in-progress\nmark-done <taskid>...........marks the task at a given id as done\nlist.........................lists all tasks\nlist todo....................lists all tasks tagged as todo\nlist in-progress.............lists all tasks tagged as in-progress\nlist done....................lists all tasks tagged as done\nexit.........................exits program\n============================================================================\n")
+
+# Two cases:
+# - Read: JSON file is opened and the leaderboard within is written to the taskList var, and is then closed. file is created if it doesn't exist
+# - Called every cycle of the inputMonitor() func
+# - Write: takes the local taskList list and serialises it to JSON into a var called taskListJson. taskListJson has a lifespan of the function, and the file is closed each time
+# - Called every time the taskList var is written to
+def jsonReadWrite(taskList, readWrite):
+    if readWrite == "read":
+        try:
+            with open(f"{os.path.dirname(os.path.realpath(__file__))}/tasklist.json", "r") as x:
+                taskList = jsonpickle.decode(x.read())
+                x.close()
+            return taskList
+        except FileNotFoundError:
+            with open(f"{os.path.dirname(os.path.realpath(__file__))}/tasklist.json", "x") as x:
+                x.close()
+            taskList = []
+            return taskList 
+    else:
+        taskListJson = []
+        with open(f"{os.path.dirname(os.path.realpath(__file__))}/tasklist.json", "w") as x:
+            taskListJson = jsonpickle.encode(taskList)
+            x.write(taskListJson)
+            x.close()
 
 # takes processed args from inputMonitor():
 # - commandCalled dictates what case is met, and so what actions are taken on the other 3 parameters
@@ -48,12 +67,14 @@ def taskManager(commandCalled, param1, param2, taskId):
             else:
                 taskTemp.body = param1
             taskList.insert(taskId, taskTemp)
+            jsonReadWrite(taskList, "write")
             print(f"\nTask succesfully created! ID: {taskId}\n")
             return taskList
         case "delete":
             for i, task in enumerate(taskList): # repeatedly used algorithm to find a task object in the list with a given id, then take actions on that task object. further examples marked by #*
                 if str(task.taskId_objAttr) == param1:
                     task.pop()
+                    jsonReadWrite(taskList, "write")
                     return taskList
             else:
                 print(f"\n[ERROR]: task with ID {param1} does not exist")
@@ -62,13 +83,17 @@ def taskManager(commandCalled, param1, param2, taskId):
                 if str(task.taskId_objAttr) == param1:
                     task.body = param2
                     task.createUpdateAt = datetime.now()
+                    jsonReadWrite(taskList, "write")
                     print(f"\nTask with ID {param1} succesfully updated!\n")
                     return taskList
             else:
                 print(f"\n[ERROR]: task with ID {param1} does not exist")
         case "list": # used to decide whether a filter gets passed to printList() 
             if param1:
-                printList(param1, True, tag)
+                if param1 == ("    Done   " or "    Todo   " or "In progress"):
+                    printList(param1, True, tag)
+                else:
+                    print(f"\n[ERROR]: '{param1}' is not a valid tag")
             else:
                 printList(None, False, "")
         case "mark-in-progress":
@@ -76,6 +101,8 @@ def taskManager(commandCalled, param1, param2, taskId):
                 if str(task.taskId_objAttr) == param1:
                     task.status = "In progress"
                     task.createUpdateAt = datetime.now()
+                    jsonReadWrite(taskList, "write")
+                    print(f"\nTask with ID {param1} succesfully updated!\n")
                     return taskList
             else:
                 print(f"\n[ERROR]: task with ID {param1} does not exist")
@@ -84,6 +111,8 @@ def taskManager(commandCalled, param1, param2, taskId):
                 if str(task.taskId_objAttr) == param1:
                     task.status = "    Done   "
                     task.createUpdateAt = datetime.now()
+                    jsonReadWrite(taskList, "write")
+                    print(f"\nTask with ID {param1} succesfully updated!\n")
                     return taskList
             else:
                 print(f"\n[ERROR]: task with ID {param1} does not exist")
@@ -105,7 +134,10 @@ def printList(statusFilter, filterActive, tagParam):
             else: # purely for formatting, would become wonky if lineCount > 9 otherwise
                 print(f"{taskList[i].taskId_objAttr}  | {taskList[i].createUpdateAt.replace(microsecond=0)} | {taskList[i].status} |   {taskList[i].body}")
     if lineCount == 0:
-        print(f"No tasks tagged as {tagParam}") # tagParam was created specifically for this line. i am very sorry
+        if filterActive:
+            print(f"No tasks tagged as {tagParam}") # tagParam was created specifically for this line. i am very sorry
+        else:
+            print("No tasks found")
     print(" ") # formatting
 
 # as tasks' id values are added to taskList in ascending order, you can find the biggest id by reading the last index.
@@ -121,6 +153,7 @@ def inputMonitor():
     taskBodyHalf = None 
     # ^initialises the var so it doesn't whine at me - var gets sent as the param2 arg in taskManager() if it needs to exist. 
     # called as such because in a multi word task body it is stitched together with param1
+    jsonReadWrite(taskList,"read")
     userInput = input().split(" ") # formats command and its args
     if len(userInput) > 2: # ln 125 to 131 decides what the args contain
         taskBodyHalf = " " + userInput[2]
@@ -139,7 +172,7 @@ def inputMonitor():
             taskManager(userInput[0], None, None, idHandler())
     inputMonitor() # recurses once taskManager() finishes its task to allow another command
 
-print("\nWelcome to Jazztracker v0.9! Get started by adding a task, or use the \"help\" command if you're stuck.\n")     
+print("\nWelcome to Jazztracker v1.0! Get started by adding a task, or use the \"help\" command if you're stuck.\n")     
 inputMonitor()
 
 #commands: 
@@ -153,7 +186,6 @@ inputMonitor()
 #list in-progress
 #list done
 #exit
-
 
 
 
